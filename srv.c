@@ -7,7 +7,7 @@
 #include <sys/shm.h>
 #include <signal.h>
 #define COUNT_PROC 5
-
+#define HOME "/home/slite/Документы/Учеба/Server/doc"
 
 struct shared_attr
 {
@@ -26,7 +26,7 @@ void sendBuf(char *message,int size, int client_fd)
     while(total < size)
     {
         n = send(client_fd,(message+n), size-n,0);        
-	if(n == -1)
+		if(n == -1)
             break;
         total += n;
     }
@@ -56,6 +56,19 @@ void close_srv()
 	{
 		kill(proc_attr->pid[i], SIGKILL);
 	}
+	if(shmdt(shared_memory) == -1)
+	{
+		fprintf(stderr,"Error shmdt\n");
+		exit(EXIT_FAILURE);
+	}
+
+	if(shmctl(shmid,IPC_RMID,0) == -1)
+	{
+		fprintf(stderr,"Error shmctl(IPC_RMID)\n");
+		exit(EXIT_FAILURE);
+	}
+
+	exit(EXIT_SUCCESS);
 }
 
 #define TRACE printf("%s; %d\n", __FILE__, __LINE__);
@@ -110,6 +123,6 @@ int main()
 		}		
 	}    
 	sigaction(SIGINT, &close_srv, 0);
-    return 0;
+    wait(NULL);
 }
 
