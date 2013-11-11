@@ -4,6 +4,18 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#define COUNT_PROC 5
+
+
+struct shared_attr
+{
+	int pid[COUNT_PROC];
+	int used[COUNT_PROC];
+} 
+
+int shmid;
+void *shared_mem;
+shared_attr *proc_attr;
 
 void sendBuf(char *message,int size, int client_fd)
 {
@@ -19,6 +31,24 @@ void sendBuf(char *message,int size, int client_fd)
         total += n;
     }
 }
+
+void AddShm()
+{
+	shmid = shmget((key_t)1234,sizeof(shared_attr),0666 | IPC_CREAT);
+    if (shmid == -1)
+    {
+        fprintf(stderr,"Error shmget\n");
+        exit(EXIT_FAILURE);
+    }
+	shared_mem = shmat(shmid,(void *)0,0);
+    if (shared_mem == (void *)-1)
+    {
+        fprintf(stderr,"Error shmat\n");
+        exit(EXIT_FAILURE);
+    }
+    proc_attr = (shared_attr *)shared_mem;
+}
+
 #define TRACE printf("%s; %d\n", __FILE__, __LINE__);
 int main()
 {
@@ -27,18 +57,35 @@ int main()
 	int server_fd, server_ln;
     int client_fd, client_ln;
     int bind_s, list_s;
-    struct sockaddr_in server_addres;
+	int i, child_pid;
+	struct sockaddr_in server_addres;
     struct sockaddr_in client_addres;
+	
+	AddShm();
+
     server_fd = socket(AF_INET,SOCK_STREAM,0);
     server_addres.sin_family = AF_INET;
     server_addres.sin_addr.s_addr = inet_addr("127.0.0.1");
     server_addres.sin_port = htons(2235);
     server_ln = sizeof(server_addres);
-    bind_s = bind(server_fd, (struct sockaddr *) &server_addres, server_ln);
-	list_s = listen(server_fd,5);
-TRACE
+    
+	bind_s = bind(server_fd, (struct sockaddr *) &server_addres, server_ln);
+	list_s = listen(server_fd,10);
+
     printf("Bind %d, List %d \n",bind_s, list_s);
-    while(1)
+	
+	for (i=0;i<COUNT_PROC;i++)
+	{	
+		if ((child_pid=fork()) == 0)
+		{
+						
+		}
+		else
+		{
+			
+		}		
+	}    
+	while(1)
     {
 		client_ln = sizeof(client_addres);
 		client_fd = accept(server_fd, (struct sockaddr *) &client_addres, &client_ln);
