@@ -4,6 +4,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <sys/shm.h>
+#include <signal.h>
 #define COUNT_PROC 5
 
 
@@ -21,11 +23,9 @@ void sendBuf(char *message,int size, int client_fd)
 {
     int total = 0;
     int n=0;
-    printf("Client FD %d \n", client_fd);
     while(total < size)
     {
-        n = send(client_fd,(message+n), size-n,0);
-	printf("Result %d,  \n", n);        
+        n = send(client_fd,(message+n), size-n,0);        
 	if(n == -1)
             break;
         total += n;
@@ -49,6 +49,15 @@ void AddShm()
     proc_attr = (shared_attr *)shared_mem;
 }
 
+void close_srv()
+{
+	int i;
+	for (i=0;i<COUNT_PROC;i++)
+	{
+		kill(proc_attr->pid[i], SIGKILL);
+	}
+}
+
 #define TRACE printf("%s; %d\n", __FILE__, __LINE__);
 int main()
 {
@@ -60,6 +69,11 @@ int main()
 	int i, child_pid;
 	struct sockaddr_in server_addres;
     struct sockaddr_in client_addres;
+	struct sigaction close_str;
+
+    close_str.sa_handler = close_srv;
+    sigemptyset(&close_str.sa_mask);
+    close_str.sa_flags = 0;
 	
 	AddShm();
 
@@ -78,20 +92,24 @@ int main()
 	{	
 		if ((child_pid=fork()) == 0)
 		{
-						
+			while(1)
+			{
+				client_ln = sizeof(client_addres);
+				client_fd = accept(server_fd, (struct sockaddr *) &client_addres, &client_ln);
+				printf("Client connect with FD %d \n",client_fd);        
+				//sendBuf(&header[0],sizeof(header),client_fd);
+				proc_attr->used[i] = 1;
+				process_client(client_fd);
+				printf("Client disconect, FD %d \n",client_fd);
+				close(client_fd);
+			}				
 		}
 		else
 		{
-			
+			proc_attr->used[i] = child_pid;			
 		}		
 	}    
-	while(1)
-    {
-		client_ln = sizeof(client_addres);
-		client_fd = accept(server_fd, (struct sockaddr *) &client_addres, &client_ln);
-		TRACE        
-		sendBuf(&header[0],sizeof(header),client_fd);
-    }
+	sigaction(SIGINT, &close_srv, 0);
     return 0;
 }
 
