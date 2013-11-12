@@ -84,12 +84,14 @@ void process_client(int client_fd)
 {
 	int file;
 	int send_bytes;
+	char *header = "HTTP/1.1 200 OK\n\n"; 
+	char *body; 
+	
 	if (parse_query(client_fd))	
 	{
 		if ((file = open(path, O_RDONLY)) != -1)
         {
-            server_answer.header = "HTTP/1.1 200 OK\n\n";
-            send(client_sockfd, server_answer.header, strlen(server_answer.header), 0);
+            send(client_sockfd, header, strlen(header), 0);
             while((send_bytes = read(file, buf, SIZE_BUF)) > 0)
             {
                 write(client_fd, buf, send_byte);
@@ -98,10 +100,10 @@ void process_client(int client_fd)
         }
         else
         {
-            server_answer.header = "HTTP/1.1 404 Not Found\n\n";
-            server_answer.body = "<html><body><h1>404 Not Found</h1></body></html>";
-            send(client_sockfd, server_answer.header, strlen(server_answer.header), 0);
-            send(client_sockfd, server_answer.body, strlen(server_answer.body), 0);
+            header = "HTTP/1.1 404 Not Found\n\n";
+            body = "<html><body><h1>404 Not Found</h1></body></html>";
+            send(client_fd, header, strlen(header), 0);
+            send(client_fd, body, strlen(body), 0);
         }
 	}
 }
@@ -168,6 +170,7 @@ int main()
 				client_ln = sizeof(client_addres);
 				client_fd = accept(server_fd, (struct sockaddr *) &client_addres, &client_ln);
 				printf("Client connect with FD %d \n",client_fd);        
+				process_client(client_fd);				
 				//sendBuf(&header[0],sizeof(header),client_fd);
 				proc_attr->used[i] = 1;
 				process_client(client_fd);
