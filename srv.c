@@ -6,8 +6,12 @@
 #include <arpa/inet.h>
 #include <sys/shm.h>
 #include <signal.h>
+
 #define COUNT_PROC 5
+#define SIZE_BUF 1024
+
 #define HOME "/home/slite/Документы/Учеба/Server/doc"
+#define DEFAULT_URL "/index.html"
 
 struct shared_attr
 {
@@ -15,6 +19,12 @@ struct shared_attr
 	int used[COUNT_PROC];
 } 
 
+char query[4000];
+char *param[2];
+char *HOME_DIR;
+char msg[9999];
+char path[9999];
+char buf[SIZE_BUF];
 int shmid;
 void *shared_mem;
 shared_attr *proc_attr;
@@ -48,6 +58,54 @@ void AddShm()
     }
     proc_attr = (shared_attr *)shared_mem;
 }
+
+int parse_query(int fd)
+{
+	HOME_DIR = HOME;
+	memset((void *)query,(int)'\0',4000);
+    read(fd, query, sizeof(query));
+
+    param[0] = strtok(query," ");
+    if(strncmp(param[0], "GET", 4) == 0)
+    {
+        param[1] = strtok(NULL," ");
+        if(strncmp(param[1],"/", 2) == 0)
+		{
+            param[1] = DEFAULT_URL;
+		}        
+		strcpy(path,HOME_DIR);
+        strcpy(&path[strlen(HOME_DIR)],param[1]);
+		return 1;
+	}
+	return 0;
+}
+
+void process_client(int client_fd)
+{
+	int file;
+	int send_bytes;
+	if (parse_query(client_fd))	
+	{
+		if ((file = open(path, O_RDONLY)) != -1)
+        {
+            server_answer.header = "HTTP/1.1 200 OK\n\n";
+            send(client_sockfd, server_answer.header, strlen(server_answer.header), 0);
+            while((send_bytes = read(file, buf, SIZE_BUF)) > 0)
+            {
+                write(client_fd, buf, send_byte);
+            }
+            close(file);
+        }
+        else
+        {
+            server_answer.header = "HTTP/1.1 404 Not Found\n\n";
+            server_answer.body = "<html><body><h1>404 Not Found</h1></body></html>";
+            send(client_sockfd, server_answer.header, strlen(server_answer.header), 0);
+            send(client_sockfd, server_answer.body, strlen(server_answer.body), 0);
+        }
+	}
+}
+
 
 void close_srv()
 {
